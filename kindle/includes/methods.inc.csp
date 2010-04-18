@@ -852,7 +852,7 @@
 			
 			; You could use the DTI method:
 			
-			//set k("listObj2") = ##class(dt.cms.support.TopSlotStories).getTopStories("pub name", "section name", "page layout name", "grid name", "area name", "items to return (int)")
+			//set listObj2 = ##class(dt.cms.support.TopSlotStories).getTopStories("pub name", "section name", "page layout name", "grid name", "area name", "items to return (int)")
 			
 			; Unfortunately, it does not work so well for _all_ the sections at the RG, so... We are going to use our own code:
 			
