@@ -107,12 +107,12 @@
 		
 	<csp:else>
 		
-		<!-- Error: Could not open the publication object. Default output goes here. -->
+		<!-- Error: Could not open the publication object. -->
 		
 	</csp:if>
 	
 <csp:else>
 	
-	<!-- Error: "publication" was not specified in the url. Default output goes here. -->
+	<!-- Error: "publication" was not specified in the url. -->
 	
 </csp:if>
