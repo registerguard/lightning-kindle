@@ -1,5 +1,3 @@
-<csp:comment> TODO: Make sure all vars are newed. 3) Make all vars use "sectionName" vs. just "section" (for exmaple). </csp:comment>
-
 <csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
 
 <script language="cache" method="clean" arguments='string:%String=""' returntype="%String">
