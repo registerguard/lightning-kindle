@@ -3,3 +3,48 @@ Lightning Kindle
 ==========================
 
 Kindle (beta) code for DTI's Lightning CMS.
+
+==========================
+Disclaimer(s):
+==========================
+
+1.
+
+You will have to tweak several of my methods in order for this code to work on your system. For example, the headline/text/byline/other extraction methods are probably not going to function on your system… Just replace that code for yours and you should be golden (as long as the method returns the same thing).
+
+If you have any questions, just shoot me an e-mail and I will do my best to help.
+
+2.
+
+If you decide to use this code, then do so on your test server (i.e. do not use your production system to test code).
+
+3.
+
+Use this code at your own risk.
+
+==========================
+Notes:
+==========================
+
+After uploading to your test server, be sure to update the virtual include path:
+
+<!-- #include virtual = "/ROOT/PATH/TO/kindle/includes/methods.inc.csp" -->
+
+… For each of these files:
+
+kindle/kindle.article.file.csp
+kindle/kindle.article.manifest.csp
+kindle/kindle.section.manifest.csp
+
+Unfortunately, I was not able to get a relative include path to work. :(
+
+Read more about virtual includes here:
+
+"CSP and HTML Tag Reference: #INCLUDE"
+http://snipurl.com/vkuxb
+
+Note:
+
+"CSP includes files before executing script commands. Therefore, you cannot use a script command to build the name of an included file."
+
+
