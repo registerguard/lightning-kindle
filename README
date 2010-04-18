@@ -47,4 +47,10 @@ Note:
 
 "CSP includes files before executing script commands. Therefore, you cannot use a script command to build the name of an included file."
 
+==========================
+Miscellaneous:
+==========================
 
+Inspired by:
+
+http://github.com/onemoreryan/django-kindle
