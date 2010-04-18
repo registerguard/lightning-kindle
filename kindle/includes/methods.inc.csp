@@ -345,12 +345,11 @@
 		set:(+charLimit > 0) text = rulesObj.charLimit(text, charLimit, 0)
 		set:(+wordLimit > 0) text = rulesObj.wordLimit(text, wordLimit, 0)
 		set:(+sentenceLimit > 0) text = rulesObj.sentenceLimit(text, sentenceLimit, 0)
+		set text = ..entities(text)
 		set:($zconvert(ellipsis, "U") = "TRUE") text = text _ " &#8230;"
 		
 		// Expand any ##()## in the stream (required to make the inline ##()## expressions work):
 		set text = $$resolvePP^%cspQuote(text)
-		
-		set text = ..entities(text)
 		
 	}
 	
