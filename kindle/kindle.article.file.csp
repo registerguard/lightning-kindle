@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<script language="cache" method="OnPreHTTP" returntype="%Boolean">
+	do %response.SetHeader("Content-Type", "text/xml")
+	//do %response.ExpiresSet("600") // 600 seconds (10 minutes) from now.
+	//set %response.VaryByParam = "cid"
+	quit 1
+</script>
+
+<csp:include page="./includes/config.inc.csp" />
+<!-- #include virtual = "/csp/cms/sites/kindle/includes/methods.inc.csp" -->
+
+<script language="cache" runat="server">
+	
+	; Inspired by:
+	; http://github.com/onemoreryan/django-kindle
+	; Quick start Kindle guide found here:
+	; http://snipurl.com/vkljq
+	
+	//----------------------------------
+	// Declare:
+	//----------------------------------
+	
+	new k
+	
+	//----------------------------------
+	// Initialize:
+	//----------------------------------
+	
+	set k("cid") = ""
+	
+	//----------------------------------
+	// Get CID (required):
+	//----------------------------------
+	
+	set k("cid") = $get(%request.Data("cid", 1))
+	
+</script>
+
+<csp:if condition=($length(k("cid")))>
+	
+	<csp:object name="gStory" classname="dt.cms.schema.CMSStory" objid="#(k("cid"))#">
+	
+	<csp:if condition=($isobject(gStory))>
+		
+		<script language="cache" runat="server">
+			
+			//----------------------------------
+			// Initialize:
+			//----------------------------------
+			
+			set (k("date"), k("byline"), k("headline"), k("subheadline"), k("text")) = ""
+			
+			//----------------------------------
+			// Get story date:
+			//----------------------------------
+			
+			set k("date") = ..date(2, gStory)
+			
+			//----------------------------------
+			// Get story byline:
+			//----------------------------------
+			
+			set k("byline") = ..byline(gStory)
+			
+			//----------------------------------
+			// Get story headline:
+			//----------------------------------
+			
+			set k("headline") = ..headline(gStory)
+			
+			//----------------------------------
+			// Get story subheadline:
+			//----------------------------------
+			
+			//set k("subheadline") = ..subheadline(gStory, " | ")
+			set k("subheadline") = ..subheadline(gStory)
+			
+			//----------------------------------
+			// Get story text:
+			//----------------------------------
+			
+			set k("text") = ..text(gStory, "noclass",,,, "false")
+			set k("abstract") = ..text(gStory, "textonly",, 100)
+			
+			//--------------------------------------------------------------------------
+			//
+			// GET STORY PICTURE:
+			// This part is definitely a work in progress...
+			//
+			//--------------------------------------------------------------------------
+			
+			//----------------------------------
+			// Initialize:
+			//----------------------------------
+			
+			set (k("image"), k("image", "photographer"), k("image", "caption"), k("image", "stream"), k("image", "meta"), k("image", "type"), k("image", "width"), k("image", "height")) = ""
+			
+			//----------------------------------
+			// Get picture:
+			//----------------------------------
+			
+			set k("image") = ..picture(gStory, "990pxw")
+			
+			if ($isobject(k("image"))) {
+				
+				//----------------------------------
+				// Get picture stream:
+				//----------------------------------
+				
+				set k("image", "stream") = ..EscapeHTML(..stream(k("image")))
+				
+				//----------------------------------
+				// Miscellaneous:
+				//----------------------------------
+				
+				set k("image", "photographer") = "-" // What is best way to obtain photographer credit?
+				set k("image", "caption") = ..pick(k("image"), "caption")
+				
+				//----------------------------------
+				// Type/width/height:
+				//----------------------------------
+				
+				set k("image", "meta") = ..sizeByStream(k("image").image)
+				
+				if ($listvalid(k("image", "meta"))) {
+					
+					set:($listdata(k("image", "meta"))) k("image", "type") = $zconvert($list(k("image", "meta")), "L")
+					set:($listdata(k("image", "meta"), 2)) k("image", "width") = $list(k("image", "meta"), 2)
+					set:($listdata(k("image", "meta"), 3)) k("image", "height") = $list(k("image", "meta"), 3)
+					
+				}
+				
+			}
+			
+		</script>
+		
+		<nitf baselang="en-US">
+			
+			<head>
+				
+				<docdata management-status="usable">
+					
+					<date.release norm="#(k("date"))#" />
+					
+				</docdata>
+				
+			</head>
+			
+			<body>
+				
+				<body.head>
+					
+					<hedline>
+						
+						<hl1>#(k("headline"))#</hl1>
+						<csp:if condition='$length(k("subheadline"))'>
+							<hl2 class="subhead">#(k("subheadline"))#</hl2>
+						</csp:if>
+						
+					</hedline>
+					
+					<csp:if condition='$length(k("byline"))'>
+						<byline>#(k("byline"))#</byline>
+					<csp:else>
+						<byline>-</byline>
+					</csp:if>
+					
+					<abstract>#(k("abstract"))#</abstract>
+					
+				</body.head>
+				
+				<body.content>
+					
+					<block>#(k("text"))#</block>
+					
+					<csp:if condition='$isobject(k("image"))'>
+						
+						<block>
+							
+							<media media-type="image">
+								<media-metadata name="type" value="photo" />
+								<media-caption>#(k("image", "caption"))#</media-caption>
+								<media-producer>#(k("image", "photographer"))#</media-producer>
+								<media-reference mime-type="image/#(k("image", "type"))#" width="#(k("image", "width"))#" height="#(k("image", "height"))#" name="article image" units="pixels">#(k("image", "stream"))#</media-reference>
+							</media>
+							
+						</block>
+						
+					</csp:if>
+					
+				</body.content>
+				
+				<body.end>
+					
+					<tagline typ="std" />
+					
+				</body.end>
+				
+			</body>
+			
+		</nitf>
+		
+	<csp:else>
+		
+		<!-- Error: Could not open the story object. -->
+		
+	</csp:if>
+	
+<csp:else>
+	
+	<!-- Error: "cid" was not specified in the url. -->
+	
+</csp:if>
+
+<script language="cache" runat="server">
+	
+	//----------------------------------
+	// Garbage collection:
+	//----------------------------------
+	
+	kill k
+	
+</script>

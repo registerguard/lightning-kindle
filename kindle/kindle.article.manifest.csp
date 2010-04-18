@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<script language="cache" method="OnPreHTTP" returntype="%Boolean">
+	do %response.SetHeader("Content-Type", "text/xml")
+	//do %response.ExpiresSet("600") // 600 seconds (10 minutes) from now.
+	//set %response.VaryByParam = "publication,section"
+	quit 1
+</script>
+
+<csp:include page="./includes/config.inc.csp" />
+<!-- #include virtual = "/csp/cms/sites/kindle/includes/methods.inc.csp" -->
+
+<script language="cache" runat="server">
+	
+	; Inspired by:
+	; http://github.com/onemoreryan/django-kindle
+	; Quick start Kindle guide found here:
+	; http://snipurl.com/vkljq
+	
+	//----------------------------------
+	// Declare:
+	//----------------------------------
+	
+	new k
+	
+	//----------------------------------
+	// Initialize:
+	//----------------------------------
+	
+	set (k("publicationName"), k("sectionName")) = ""
+	
+	//----------------------------------
+	// Get publication name (required):
+	//----------------------------------
+	
+	set k("publicationName") = $get(%request.Data("publication", 1))
+	
+	//----------------------------------
+	// Get section name (required):
+	//----------------------------------
+	
+	set k("sectionName") = $get(%request.Data("section", 1))
+	
+</script>
+
+<csp:if condition=($length(k("publicationName"))&&$length(k("sectionName")))>
+	
+	<script language="cache" runat="server">
+		
+		//----------------------------------
+		// Initialize:
+		//----------------------------------
+		
+		set k("publicationId") = ""
+		
+		//----------------------------------
+		// Get publication ID:
+		//----------------------------------
+		
+		set k("publicationId") = ..publication(k("publicationName"), "true")
+		
+	</script>
+	
+	<csp:object name="gPublication" classname="dt.cms.schema.Publication" objid="#(k("publicationId"))#">
+	
+	<csp:if condition=($isobject(gPublication))>
+		
+		<script language="cache" runat="server">
+			
+			//----------------------------------
+			// Initialize:
+			//----------------------------------
+			
+			set k("sectionId") = ""
+			
+			//----------------------------------
+			// Get section ID:
+			//----------------------------------
+			
+			set k("sectionId") = ..section(gPublication, k("sectionName"), "true")
+			
+		</script>
+		
+		<csp:object name="gSection" classname="dt.cms.schema.Section" objid="#(k("sectionId"))#">
+		
+		<csp:if condition=($isobject(gSection))>
+			
+			<script language="cache" runat="server">
+				
+				//----------------------------------
+				// Initialize:
+				//----------------------------------
+				
+				set k("stories") = ""
+				
+				//----------------------------------
+				// Get stories:
+				//----------------------------------
+				
+				set k("stories") = ..getSlottedStories(gPublication, gSection, config("areas"))
+				
+			</script>
+			
+			<rss version="2.0">
+				
+				<channel>
+					
+					<title>#(config("sections", k("sectionName")))#</title>
+					
+					<csp:loop counter="x" from="1" to="#(k("stories").Count())#">
+						
+						<dti:story:use storyobj="#(k("stories").GetAt(x))#">
+							
+							<item>
+								<link>kindle.article.file.csp?cid=#(k("stories").GetAt(x).%Id())#</link>
+							</item>
+							
+						</dti:story:use>
+						
+					</csp:loop>
+					
+				</channel>
+				
+			</rss>
+			
+		<csp:else>
+			
+			<!-- Error: Could not open the section object. -->
+			
+		</csp:if>
+		
+	<csp:else>
+		
+		<!-- Error: Could not open the publication object. -->
+		
+	</csp:if>
+	
+<csp:else>
+	
+	<!-- Error: "publication" and/or "section" were not specified in the url. -->
+	
+</csp:if>
+
+<script language="cache" runat="server">
+	
+	//----------------------------------
+	// Garbage collection:
+	//----------------------------------
+	
+	kill k
+	
+</script>

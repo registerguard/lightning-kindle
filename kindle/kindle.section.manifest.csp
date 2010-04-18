@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<script language="cache" method="OnPreHTTP" returntype="%Boolean">
+	do %response.SetHeader("Content-Type", "text/xml")
+	//do %response.ExpiresSet("600") // 600 seconds (10 minutes) from now.
+	//set %response.VaryByParam = "publication"
+	quit 1
+</script>
+
+<csp:include page="./includes/config.inc.csp" />
+<!-- #include virtual = "/csp/cms/sites/kindle/includes/methods.inc.csp" -->
+
+<script language="cache" runat="server">
+	
+	; Inspired by:
+	; http://github.com/onemoreryan/django-kindle
+	; Quick start Kindle guide found here:
+	; http://snipurl.com/vkljq
+	
+	//----------------------------------
+	// Declare:
+	//----------------------------------
+	
+	new k
+	
+	//----------------------------------
+	// Initialize:
+	//----------------------------------
+	
+	set k("publicationName") = ""
+	
+	//----------------------------------
+	// Get publication name (required):
+	//----------------------------------
+	
+	set k("publicationName") = $get(%request.Data("publication", 1))
+	
+</script>
+
+<csp:if condition=($length(k("publicationName")))>
+	
+	<script language="cache" runat="server">
+		
+		//----------------------------------
+		// Initialize:
+		//----------------------------------
+		
+		set k("publicationId") = ""
+		
+		//----------------------------------
+		// Get publication ID:
+		//----------------------------------
+		
+		set k("publicationId") = ..publication(k("publicationName"), "true")
+		
+	</script>
+	
+	<csp:object name="gPublication" classname="dt.cms.schema.Publication" objid="#(k("publicationId"))#">
+	
+	<csp:if condition=($isobject(gPublication))>
+		
+		<script language="cache" runat="server">
+			
+			//----------------------------------
+			// Initialize:
+			//----------------------------------
+			
+			set k("date") = ""
+			set k("sections") = ##class(%ListOfObjects).%New()
+			
+			//----------------------------------
+			// Publication date:
+			//----------------------------------
+			
+			set k("date") = ..date()
+			
+			//----------------------------------
+			// Sections:
+			//----------------------------------
+			
+			//set k("sections") = ..getAllSections(gPublication.getName())
+			set k("sections") = ..getSections(gPublication, config("sections"))
+			
+		</script>
+		
+		<rss version="2.0">
+			
+			<channel>
+				
+				<title>#(config("publisher", "name"))#</title>
+				
+				<link>#(config("publisher", "domain"))#</link>
+				
+				<pubDate>#(k("date"))#</pubDate>
+				
+				<csp:loop counter="x" from="1" to="#(k("sections").Count())#">
+					
+					<item>
+						<link>kindle.article.manifest.csp?publication=#(gPublication.getName())#&amp;section=#(k("sections").GetAt(x).getName())#</link>
+					</item>
+					
+				</csp:loop>
+				
+			</channel>
+			
+		</rss>
+		
+	<csp:else>
+		
+		<!-- Error: Could not open the publication object. Default output goes here. -->
+		
+	</csp:if>
+	
+<csp:else>
+	
+	<!-- Error: "publication" was not specified in the url. Default output goes here. -->
+	
+</csp:if>

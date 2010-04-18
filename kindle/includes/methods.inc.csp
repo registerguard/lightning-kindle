@@ -1,0 +1,975 @@
+<csp:comment> TODO: Make sure all vars are newed. 3) Make all vars use "sectionName" vs. just "section" (for exmaple). </csp:comment>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="clean" arguments='string:%String=""' returntype="%String">
+	
+	/**
+	 * Strip control characters (0-31, 127-159).
+	 * 
+	 * @param      string
+	 * @return     string
+	 */
+	
+	quit $zstrip(string, "*C")
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="trim" arguments='string:%String="", mode:%String=""' returntype="%String">
+	
+	/**
+	 * Trim leading/trailing $c(9, 32, 160) characters.
+	 * 
+	 * @param      string
+	 * @param      string (Trim mode: "L" = left, "R" = right, "LR" = left & right)
+	 * @return     string.
+	 */
+	
+	quit $zstrip(string, $case($zconvert(mode, "U"), "L":"<W", "R":">W", "":"<>W"))
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="abstract" arguments='string:%String="", limit:%Integer=50' returntype="%String">
+	
+	/**
+	 * Create abstract (i.e. excerpt) from string.
+	 * 
+	 * @param      string
+	 * @param      integer
+	 * @return     string
+	 */
+	
+	quit ##class(dt.cms.support.Rules).wordLimit(string, limit, 0)
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="byline" arguments='storyObj:dt.cms.schema.CMSStory=""' returntype="%String">
+	
+	/**
+	 * Get story byline.
+	 * 
+	 * @param      object
+	 * @return     string
+	 */
+	
+	; RG order of precedence: "Mugline" (for columnists) OR "WebByline1", and "Byline".
+	; Note: The RG has a custom rule and ClassMethods to handle this logic -- Doing it here for portability and sake of example.
+	
+	new byline, rulesObj
+	set (byline, rulesObj) = ""
+	
+	if ($isobject(storyObj) && $isobject(storyObj.story)) {
+		
+		set rulesObj = ##class(dt.cms.support.Rules).%New()
+		
+		set byline = rulesObj.extractStoryElement("Mugline", storyObj, 0, "textonly")
+		// 250 and 1017 are "City/Region Columnist" and "Sports Columnist", respectively:
+		set:($length(byline) && $case(storyObj.story.subCategoryId, "250":1, "1017":1, :0)) byline = rulesObj.extractStoryElement("Mugline", storyObj, 0, "textonly") // Need some error checking on subCategoryId here.
+		set:('$length(byline)) byline = rulesObj.extractStoryElement("WebByline1", storyObj, 0, "textonly")
+		set:('$length(byline)) byline = rulesObj.extractStoryElement("Byline", storyObj, 0, "textonly")
+		set:('$length(byline)) byline = storyObj.story.author // fail-safe?
+		// RG-specific cruft:
+		set byline = $replace(byline, "BY ", "",,,1)
+		set byline = $replace(byline, "THE REGISTER-GUARD", "",,,1)
+		// Strip and trim:
+		set byline = ..clean(byline)
+		set byline = ..trim(byline)
+		set byline = ..entities(byline)
+		
+	}
+	
+	quit byline
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="date" arguments='type:%Integer=1, storyObj:dt.cms.schema.CMSStory=""' returntype="%String">
+	
+	/**
+	 * Get story date.
+	 * 
+	 * @param      integer
+	 * @param      object
+	 * @return     string
+	 */
+	
+	; Django: http://docs.djangoproject.com/en/1.1/ref/templates/builtins/#now
+	; PHP: http://us3.php.net/manual/en/function.date.php
+	
+	new date
+	set date = ""
+	
+	if (type = 1) {
+		
+		; AMAZON'S PREFERRED DATE FORMAT: "D, d M Y H:i:s"
+		; D[Day of the week, textual, 3 letters], d[Day of the month, 2 digits with leading zeros] M[Month, textual, 3 letters] Y[Year, 4 digits] H[Hour, 24-hour format]:i[Minutes]:s[Seconds, 2 digits with leading zeros]
+		; Fri, 02 May 2010 18:24:45
+		; #($zdate($horolog, 11))#, #($zdate($horolog, 2))# #($ztime($piece($horolog, ",", 2), 1))#
+		; Using the current time and returning the current day.
+		
+		set date = $zdate($horolog, 11) _ ", " _ $zdate($horolog, 2) _ " " _ "00:00:00" // $ztime($piece($horolog, ",", 2), 1)
+		
+	}
+	
+	if ((type = 2) && $isobject(storyObj)) {
+		
+		; Return: "Ymd\THisO"
+		; Amazon's prefered date format.
+		; Probably should look at more than just the CMSStory.publishedToWebDate.
+		
+		set date = storyObj.publishedToWebDate // ODBC timestamp format.
+		set date = $zdatetimeh(date, 3, 1,, 4,,,,, "") // Timestamp/ODBC to HOROLOG: http://snipurl.com/v5g3a
+		set date = $zdate(date, 8) _ "\PST" _ $ztime(date) _ "+0" _ ($ztimezone / 60) _ ":00" // Y[Year, 4 digits]m[Month, 2 digits with leading zeros]d[Day of the month, 2 digits with leading zeros]\T[Time zone of this machine]H[Hour, 24-hour format]i[Minutes]s[Seconds, 2 digits with leading zeros]O[Difference to Greenwich time in hours]
+		
+	}
+	
+	quit date
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="headline" arguments='storyObj:dt.cms.schema.CMSStory=""' returntype="%String">
+	
+	/**
+	 * Get story headline.
+	 * 
+	 * @param      object
+	 * @return     string
+	 */
+	
+	; If status of story is not equal to "Ready", "Output", or "Web", then use WebUpdateHeadline, otherwise use the following:
+	; Order of precedence: "WebHeadline", "Headline", "Deck", "QuickRead", "Header", "StorySig", "Kicker", "FurnitureText", & story slug (fail-safe).
+	; These elements get forced into title casing: "Header", "StorySig", "Kicker", & "FurnitureText".
+	; Note: The RG has a custom rule and ClassMethods to handle this logic -- Doing it here for portability and sake of example.
+	
+	/*
+	** 
+	** Status chart:
+	** 
+	**               "-" = 0
+	**           "Notes" = 1
+	**             "Raw" = 2
+	**      "In Progrss" = 3
+	** "Story Completed" = 4
+	**      "First Edit" = 5
+	**          "Rimmed" = 9
+	**           "Ready" = 10
+	**          "Output" = 1018
+	**             "Web" = 1019
+	**         "Archive" = 118709
+	**            "Hold" = 632458
+	** 
+	*/
+	
+	new headline, rulesObj
+	set (headline, rulesObj) = ""
+	
+	if ($isobject(storyObj) && $isobject(storyObj.story)) {
+		
+		set rulesObj = ##class(dt.cms.support.Rules).%New()
+		
+		if (+storyObj.story.statusId < 10 && +storyObj.story.statusId > 1019) { // Need to do some error checking on statusId here.
+			
+			; Story does not have a "web" status.
+			
+			set headline = rulesObj.extractStoryElement("WebUpdateHeadline", storyObj, 0, "textonly")
+			
+		} else {
+			
+			; Story has a "web" status.
+			
+			set headline = rulesObj.extractStoryElement("WebHeadline", storyObj, 0, "textonly")
+			
+			; The following ain't purty:
+			
+			if ('$length(headline)) {
+				
+				set headline = rulesObj.extractStoryElement("Headline", storyObj, 0, "textonly")
+				
+				if ('$length(headline)) {
+					
+					set headline = rulesObj.extractStoryElement("Deck", storyObj, 0, "textonly")
+					
+					if ('$length(headline)) {
+						
+						set headline = rulesObj.extractStoryElement("QuickRead", storyObj, 0, "textonly")
+						
+						if ('$length(headline)) {
+							
+							set headline = rulesObj.extractStoryElement("Header", storyObj, 0, "textonly")
+							set:($length(headline)) headline = $zconvert(headline, "W")
+							
+							if ('$length(headline)) {
+								
+								set headline = rulesObj.extractStoryElement("StorySig", storyObj, 0, "textonly")
+								set:($length(headline)) headline = $zconvert(headline, "W")
+								
+								if ('$length(headline)) {
+									
+									set headline = rulesObj.extractStoryElement("Kicker", storyObj, 0, "textonly")
+									set:($length(headline)) headline = $zconvert(headline, "W")
+									
+									if ('$length(headline)) {
+										
+										set headline = rulesObj.extractStoryElement("FurnitureText", storyObj, 0, "textonly")
+										set:($length(headline)) headline = $zconvert(headline, "W")
+										
+									}
+									
+								}
+								
+							}
+							
+						}
+						
+					}
+					
+				}
+				
+			}
+			
+			set:('$length(headline)) headline = storyObj.story.getName() // Story slug as fail-safe.
+			
+		}
+		
+		// Strip and trim:
+		set headline = ..clean(headline)
+		set headline = ..trim(headline)
+		set headline = ..entities(headline)
+		
+	}
+	
+	quit headline
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="subheadline" arguments='storyObj:dt.cms.schema.CMSStory="", divider:%String=""' returntype="%String">
+	
+	/**
+	 * Get story subheadline.
+	 * 
+	 * @param      object
+	 * @param      string
+	 * @return     string
+	 */
+	
+	; The status of story must be ("Ready", "Output", or "Web") AND ("WebHeadline" OR "Headline") story elements must already exist.
+	; Order of precedence: "Deck", "QuickRead".
+	; Note: The RG has a custom rule and ClassMethods to handle this logic -- Doing it here for portability and sake of example.
+	
+	new subheadline, rulesObj
+	set (subheadline, rulesObj) = ""
+	
+	if ($isobject(storyObj) && $isobject(storyObj.story)) {
+		
+		set rulesObj = ##class(dt.cms.support.Rules).%New()
+		
+		if (((+storyObj.story.statusId >= 10) && (+storyObj.story.statusId <= 1019)) && ($length(rulesObj.extractStoryElement("WebHeadline", storyObj, 0)) || $length(rulesObj.extractStoryElement("Headline", storyObj, 0)))) { // Need to do some error checking on statusId here.
+			
+			set subheadline = rulesObj.extractStoryElement("Deck", storyObj, 0, "textonly")
+			set:('$length(subheadline)) subheadline = rulesObj.extractStoryElement("QuickRead", storyObj, 0, "textonly")
+			
+			if ($length(subheadline)) {
+				
+				// Strip and trim:
+				set subheadline = ..clean(subheadline)
+				set subheadline = ..trim(subheadline)
+				set subheadline = ..entities(subheadline)
+				
+				set:($length(divider)) subheadline = divider _ subheadline // Add a "divider" for better readability.
+				
+			}
+			
+		}
+		
+	}
+	
+	quit subheadline
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="text" arguments='storyObj:dt.cms.schema.CMSStory="", extractFlag:%String="none", charLimit:%Integer=0, wordLimit:%Integer=0, sentenceLimit:%Integer=0, ellipsis:%String="TRUE"' returntype="%String">
+	
+	/**
+	 * Get story text.
+	 * 
+	 * @param      object
+	 * @param      string
+	 * @param      integer
+	 * @param      integer
+	 * @param      integer
+	 * @param      string
+	 * @return     string
+	 */
+	
+	; If status of story is not equal to "Ready", "Output", or "Web", then use WebUpdateText, otherwise use the following:
+	; Order of precedence: "WebText", "Text".
+	; Note: The RG has a custom rule and ClassMethods to handle this logic -- Doing it here for portability and sake of example.
+	; Possible values for "extractFlag": "none" (default), "noclass", or "textonly".
+	
+	new text, rulesObj
+	set (text, rulesObj) = ""
+	
+	if ($isobject(storyObj) && $isobject(storyObj.story)) {
+		
+		set rulesObj = ##class(dt.cms.support.Rules).%New()
+		
+		if (+storyObj.story.statusId < 10 && +storyObj.story.statusId > 1019) {
+			
+			; Story does not have a "web" status.
+			
+			set text = rulesObj.extractStoryElement("WebUpdateText", storyObj, 0, extractFlag)
+			
+		} else {
+			
+			; Story has a "web" status.
+			
+			set text = rulesObj.extractStoryElement("WebText", storyObj, 0, extractFlag)
+			set:('$length(text)) text = rulesObj.extractStoryElement("Text", storyObj, 0, extractFlag)
+			
+			; What could we use as a fail-safe?
+			
+		}
+		
+		// Manipulate the string:
+		set:(+charLimit > 0) text = rulesObj.charLimit(text, charLimit, 0)
+		set:(+wordLimit > 0) text = rulesObj.wordLimit(text, wordLimit, 0)
+		set:(+sentenceLimit > 0) text = rulesObj.sentenceLimit(text, sentenceLimit, 0)
+		set:($zconvert(ellipsis, "U") = "TRUE") text = text _ " &#8230;"
+		
+		// Expand any ##()## in the stream (required to make the inline ##()## expressions work):
+		set text = $$resolvePP^%cspQuote(text)
+		
+		set text = ..entities(text)
+		
+	}
+	
+	quit text
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="section" arguments='publicationObj:dt.cms.schema.Publication, sectionName:%String="", id:%String=""' returntype="%String">
+	
+	/**
+	 * Get story text.
+	 * 
+	 * @param      object
+	 * @param      string
+	 * @param      string
+	 * @return     string
+	 */
+	
+	new return
+	
+	set return = ""
+	
+	if ($isobject(publicationObj) && $length(sectionName)) {
+		
+		if ($zconvert(id, "U") = "TRUE") {
+			set return = ##class(dt.cms.support.Utilities).getSectionID(publicationObj, sectionName)
+		} else {
+			set return = ##class(dt.cms.support.Rules).getSection(publicationObj, sectionName, 0)
+		}
+		
+	}
+	
+	quit return
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="publication" arguments='publicationName:%String="", id:%String=""' returntype="%String">
+	
+	/**
+	 * Get story text.
+	 * 
+	 * @param      string
+	 * @param      string
+	 * @return     string
+	 */
+	
+	new return
+	
+	set return = ""
+	
+	if ($length(publicationName)) {
+		
+		set:($zconvert(id, "U") = "TRUE") return = ##class(dt.cms.support.Utilities).getPublicationID(publicationName)
+		
+	}
+	
+	quit return
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="mergeListOfObjects" arguments='listObj1:%ListOfObjects, listObj2:%ListOfObjects, unique:%Integer=0' returntype="%ListOfObjects">
+	
+	/**
+	 * Merge two object lists.
+	 * 
+	 * @param      objects
+	 * @param      objects
+	 * @param      integer
+	 * @return     objects
+	 */
+	
+	; Merges ListsOfObjects listObj1 & listObj2 into listObj1.
+	; Argument "unique" will check if listObj1 should have unique values.
+	; Pass listObj1 by reference.
+	; Code found here: http://snipurl.com/uwybz
+	
+	new count, i
+	set count = listObj2.Count()
+	
+	for i=1:1:count {
+		
+		if ('unique || (unique && '..existsObject(listObj1, listObj2.GetAt(i)))) {
+			
+			do listObj1.Insert(listObj2.GetAt(i))
+			
+		}
+		
+	}
+	
+	quit
+	
+</script>
+
+<script language="cache" method="existsObject" arguments='listObj1:%ListOfObjects, object' returntype="%Boolean">
+	
+	/**
+	 * Check if object exsits in objects.
+	 * 
+	 * @param      objects
+	 * @param      object
+	 * @return     boolean
+	 */
+	
+	; Checks if argument "object" exists in listObj1
+	; Code found here: http://snipurl.com/uwybz
+	
+	new exists, count, i
+	set exists = 0
+	set count = listObj1.Count()
+	
+	for i=1:1:count {
+		if (listObj1.GetAt(i) = object) {
+			set exists = 1
+		}
+		quit
+	}
+	
+	quit exists
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="picture" arguments='storyObj:dt.cms.schema.CMSStory="", label=""' returntype="dt.cms.schema.CMSPicture">
+	
+	/**
+	 * Get picture object.
+	 * 
+	 * @param      object
+	 * @param      string
+	 * @return     object
+	 */
+	
+	; Not sure about max size... I would have to read the Amazon Kindle docs.
+	; Using our "990pxw" image version/item position for now.
+	; Sql provided by Scott Binns: <http://snipurl.com/v5izj>
+	; This code needs a ton of work... Not sure of the best way to handle this.
+	
+	new rs, sql, cmsPictureObj
+	set (rs, sql, cmsPictureObj) = ""
+	
+	set rs = ##class(%ResultSet).%New()
+	set sql = "SELECT distinct(CMSPicture) FROM dt_cms_schema.CMSPictureMapping WHERE cmsstory = ? AND (CMSPicture->TheCMSPictureVersion->uiLabel = '" _ label _ "')"
+	do rs.Prepare(sql)
+	if ('$$$ISERR(rs)) {
+		do rs.Execute(storyObj.%Id())
+		while (rs.Next(rs)) {
+			if ($$$ISOK(rs)) {
+				set cmsPictureObj = ##class(dt.cms.schema.CMSPicture).%OpenId(rs.GetData(1))
+			}
+		}
+	}
+
+	quit cmsPictureObj
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="pick" arguments='pictureObj:dt.cms.schema.CMSPicture="", item:%String=""' returntype="%String">
+	
+	/**
+	 * Get picture meta.
+	 * 
+	 * @param      object
+	 * @return     string
+	 */
+	
+	new return
+	
+	set return = ""
+	
+	if ($isobject(pictureObj) && $length(item)) {
+		
+		set return = ##class(dt.cms.support.Rules).getPictureItemFromCMSPictureOBJ(pictureObj, item)
+		set return = ..entities(return)
+		
+	}
+	
+	quit return
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="stream" arguments='cmsPictureObj:dt.cms.schema.CMSPicture=""' returntype="%String">
+	
+	/**
+	 * Get picture stream.
+	 * 
+	 * @param      object
+	 * @return     string
+	 */
+	
+	new return
+	
+	set return = ""
+	
+	if ($isobject(cmsPictureObj)) {
+		
+		set return = ##class(dt.cms.support.Rules).getSrcStream(cmsPictureObj.%Id())
+		
+	}
+	
+	quit return
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="sizeByStream" arguments='stream:%Stream' returntype="%String">
+	
+	/**
+	 * Get image size.
+	 * 
+	 * @param      stream
+	 * @return     string
+	 */
+	
+	; Code by Alexander Riemer
+	; http://snipurl.com/v6isu
+	; Slightly modified by Micky Hulse
+	; http://snipurl.com/v5jdn
+	
+	new return
+	
+	set return = ""
+	
+	if ($Isobject($get(stream))) {
+		
+		#define READ(%chars) stream.Read(%chars)
+		#define READCHAR $ascii(stream.Read(1))
+		
+		new type, width, height, data
+		
+		set type = "???"
+		set (width, height, n, a1, a2, readto) = 0
+		set (data, a, test) = ""
+		
+		do stream.Rewind()
+		
+		set data = $$$READ(4) // Read header.
+	
+		if ($extract(data, 1, 3) = "GIF") {
+			// GIF
+			set type = "GIF"
+			do $$$READ(2)
+			set width = ..bin2Dez($reverse($$$READ(2)))
+			set height = ..bin2Dez($reverse($$$READ(2)))
+		} elseif ($extract(data, 1, 2) = "BM") {
+			// BMP
+			set type = "BMP"
+			do $$$READ(10)
+			set n = ..bin2Dez($reverse($$$READ(4)))
+			if (n = 12) {
+				set a = $$$READ(4)
+				set width = ..bin2Dez($reverse($extract(a, 1, 2)))
+				set height = ..bin2Dez($reverse($extract(a, 3, 4)))
+			}
+			if (n > 12) {
+				set a = $$$READ(8)
+				set width = ..bin2Dez($reverse($extract(a, 1, 4)))
+				set height = ..bin2Dez($reverse($extract(a, 5, 8)))
+			}
+		} elseif ($extract(data, 1, 2) = $char(255, 216)) {
+			// JPEG
+			set type = "JPEG"
+			set a1 = $ascii(data, 3)
+			set a2 = $ascii(data, 4)
+			for {
+				quit:(a1 '= 255) //'
+				if (a2 > 190) {
+					quit:($find("192,193,194,195,197,198,199,201,202,203,205,206,207", a2))
+				}
+				set readto = ..bin2Dez($$$READ(2)) - 2
+				do $$$READ(readto)
+				set a1 = $$$READCHAR
+				set a2 = $$$READCHAR
+			}
+			do $$$READ(3)
+			set height = ..bin2Dez($$$READ(2))
+			set width = ..bin2Dez($$$READ(2))
+		} elseif ($extract(data, 1, 4) = $char(137, 80, 78, 71)) {
+			// PNG
+			set type = "PNG"
+			set n = 0
+			for {
+				do $$$READ(n + 4)
+				set n = 0
+				for i=1:1:4 {
+					set n = n * 256 + $$$READCHAR
+				}
+				set test = $$$READ(4)
+				quit:(test = "IHDR")
+			}
+			set width = 0
+			for i=1:1:4 {
+				set width = width * 256 + $$$READCHAR
+			}
+			set height = 0
+			for i=1:1:4 {
+				set height = height * 256 + $$$READCHAR
+			}
+		} elseif (($extract(data) = $char(10)) && ($char(0, 2, 3, 5)[$extract(data, 2))) {
+			// PCX
+			set type = "PCX"
+			do $$$READ(4)
+			set width = ..bin2Dez($reverse($$$READ(2))) + 1
+			set height = ..bin2Dez($reverse($$$READ(2))) + 1
+		}
+		
+		set return = $listbuild(type, width, height)
+		
+	}
+	
+	quit return
+		
+</script>
+
+<script language="cache" method="bin2Dez" arguments='bin:%Binary' returntype="%Integer">
+	
+	/**
+	 * Returns binary number "bin" in decimal format.
+	 * 
+	 * @param      binary
+	 * @return     integer
+	 */
+	
+	; Code by Alexander Riemer
+	; http://snipurl.com/v6isu
+	; Slightly modified by Micky Hulse
+	; http://snipurl.com/v5jdn
+	
+	new dez, len, i
+	set dez = 0
+	set len = $length(bin)
+	for i=1:1:len {
+		set dez = dez + $ascii(bin, i) * (256 ** (len - i))
+	}
+	quit dez
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="entities" arguments='string:%String' returntype="%String">
+	
+	/**
+	 * Converts specific characters to numeric HTML entities.
+	 * 
+	 * @param      string
+	 * @return     string
+	 */
+	
+	; http://www.evolt.org/article/ala/17/21234/
+	; http://www.ascii.cl/htmlcodes.htm
+	; Is there a better way to do this?
+	
+	if ($length(string)) {
+		
+		set string = $replace(string, $c(38), "&#38;")     ; Ampersand
+		set string = $replace(string, $c(169), "&#169;")   ; Copyright sign
+		set string = $replace(string, $c(171), "&#171;")   ; Left double angle quotes
+		set string = $replace(string, $c(174), "&#174;")   ; Registered trade mark sign
+		set string = $replace(string, $c(176), "&#176;")   ; Degree sign
+		set string = $replace(string, $c(187), "&#187;")   ; Right double angle quotes
+		set string = $replace(string, $c(188), "&#188;")   ; Fraction one quarter
+		set string = $replace(string, $c(189), "&#189;")   ; Fraction one half
+		set string = $replace(string, $c(190), "&#190;")   ; Fraction three quarters
+		set string = $replace(string, $c(191), "&#191;")   ; Inverted question mark
+		set string = $replace(string, $c(192), "&#192;")   ; Latin capital letter A with grave
+		set string = $replace(string, $c(193), "&#193;")   ; Latin capital letter A with acute
+		set string = $replace(string, $c(194), "&#194;")   ; Latin capital letter A with circumflex
+		set string = $replace(string, $c(195), "&#195;")   ; Latin capital letter A with tilde
+		set string = $replace(string, $c(196), "&#196;")   ; Latin capital letter A with diaeresis
+		set string = $replace(string, $c(197), "&#197;")   ; Latin capital letter A with ring above
+		set string = $replace(string, $c(198), "&#198;")   ; Latin capital letter AE
+		set string = $replace(string, $c(199), "&#199;")   ; Latin capital letter C with cedilla
+		set string = $replace(string, $c(200), "&#200;")   ; Latin capital letter E with grave
+		set string = $replace(string, $c(201), "&#201;")   ; Latin capital letter E with acute
+		set string = $replace(string, $c(202), "&#202;")   ; Latin capital letter E with circumflex
+		set string = $replace(string, $c(203), "&#203;")   ; Latin capital letter E with diaeresis
+		set string = $replace(string, $c(204), "&#204;")   ; Latin capital letter I with grave
+		set string = $replace(string, $c(205), "&#205;")   ; Latin capital letter I with acute
+		set string = $replace(string, $c(206), "&#206;")   ; Latin capital letter I with circumflex
+		set string = $replace(string, $c(207), "&#207;")   ; Latin capital letter I with diaeresis
+		set string = $replace(string, $c(208), "&#208;")   ; Latin capital letter ETH
+		set string = $replace(string, $c(209), "&#209;")   ; Latin capital letter N with tilde
+		set string = $replace(string, $c(210), "&#210;")   ; Latin capital letter O with grave
+		set string = $replace(string, $c(211), "&#211;")   ; Latin capital letter O with acute
+		set string = $replace(string, $c(212), "&#212;")   ; Latin capital letter O with circumflex
+		set string = $replace(string, $c(213), "&#213;")   ; Latin capital letter O with tilde
+		set string = $replace(string, $c(214), "&#214;")   ; Latin capital letter O with diaeresis
+		set string = $replace(string, $c(215), "&#215;")   ; Multiplication sign
+		set string = $replace(string, $c(216), "&#216;")   ; Latin capital letter O with slash
+		set string = $replace(string, $c(217), "&#217;")   ; Latin capital letter U with grave
+		set string = $replace(string, $c(218), "&#218;")   ; Latin capital letter U with acute
+		set string = $replace(string, $c(219), "&#219;")   ; Latin capital letter U with circumflex
+		set string = $replace(string, $c(220), "&#220;")   ; Latin capital letter U with diaeresis
+		set string = $replace(string, $c(221), "&#221;")   ; Latin capital letter Y with acute
+		set string = $replace(string, $c(222), "&#222;")   ; Latin capital letter THORN
+		set string = $replace(string, $c(223), "&#223;")   ; Latin small letter sharp s - ess-zed
+		set string = $replace(string, $c(224), "&#224;")   ; Latin small letter a with grave
+		set string = $replace(string, $c(225), "&#225;")   ; Latin small letter a with acute
+		set string = $replace(string, $c(226), "&#226;")   ; Latin small letter a with circumflex
+		set string = $replace(string, $c(227), "&#227;")   ; Latin small letter a with tilde
+		set string = $replace(string, $c(228), "&#228;")   ; Latin small letter a with diaeresis
+		set string = $replace(string, $c(229), "&#229;")   ; Latin small letter a with ring above
+		set string = $replace(string, $c(230), "&#230;")   ; Latin small letter ae
+		set string = $replace(string, $c(231), "&#231;")   ; Latin small letter c with cedilla
+		set string = $replace(string, $c(232), "&#232;")   ; Latin small letter e with grave
+		set string = $replace(string, $c(233), "&#233;")   ; Latin small letter e with acute
+		set string = $replace(string, $c(234), "&#234;")   ; Latin small letter e with circumflex
+		set string = $replace(string, $c(235), "&#235;")   ; Latin small letter e with diaeresis
+		set string = $replace(string, $c(236), "&#236;")   ; Latin small letter i with grave
+		set string = $replace(string, $c(237), "&#237;")   ; Latin small letter i with acute
+		set string = $replace(string, $c(238), "&#238;")   ; Latin small letter i with circumflex
+		set string = $replace(string, $c(239), "&#239;")   ; Latin small letter i with diaeresis
+		set string = $replace(string, $c(240), "&#240;")   ; Latin small letter eth
+		set string = $replace(string, $c(241), "&#241;")   ; Latin small letter n with tilde
+		set string = $replace(string, $c(242), "&#242;")   ; Latin small letter o with grave
+		set string = $replace(string, $c(243), "&#243;")   ; Latin small letter o with acute
+		set string = $replace(string, $c(244), "&#244;")   ; Latin small letter o with circumflex
+		set string = $replace(string, $c(245), "&#245;")   ; Latin small letter o with tilde
+		set string = $replace(string, $c(246), "&#246;")   ; Latin small letter o with diaeresis
+		set string = $replace(string, $c(247), "&#247;")   ; Division sign
+		set string = $replace(string, $c(248), "&#248;")   ; Latin small letter o with slash
+		set string = $replace(string, $c(249), "&#249;")   ; Latin small letter u with grave
+		set string = $replace(string, $c(250), "&#250;")   ; Latin small letter u with acute
+		set string = $replace(string, $c(251), "&#251;")   ; Latin small letter u with circumflex
+		set string = $replace(string, $c(252), "&#252;")   ; Latin small letter u with diaeresis
+		set string = $replace(string, $c(253), "&#253;")   ; Latin small letter y with acute
+		set string = $replace(string, $c(254), "&#254;")   ; Latin small letter thorn
+		set string = $replace(string, $c(255), "&#255;")   ; Latin small letter y with diaeresis
+		set string = $replace(string, $c(338), "&#338;")   ; Latin capital letter OE
+		set string = $replace(string, $c(339), "&#339;")   ; Latin small letter oe
+		set string = $replace(string, $c(352), "&#352;")   ; Latin capital letter S with caron
+		set string = $replace(string, $c(353), "&#353;")   ; Latin small letter s with caron
+		set string = $replace(string, $c(376), "&#376;")   ; Latin capital letter Y with diaeresis
+		set string = $replace(string, $c(402), "&#402;")   ; Latin small f with hook - function
+		set string = $replace(string, $c(8211), "&#8211;") ; En dash
+		set string = $replace(string, $c(8212), "&#8212;") ; Em dash
+		set string = $replace(string, $c(8216), "&#8216;") ; Left single quotation mark
+		set string = $replace(string, $c(8217), "&#8217;") ; Right single quotation mark
+		set string = $replace(string, $c(8218), "&#8218;") ; Single low-9 quotation mark
+		set string = $replace(string, $c(8220), "&#8220;") ; Left double quotation mark
+		set string = $replace(string, $c(8221), "&#8221;") ; Right double quotation mark
+		set string = $replace(string, $c(8222), "&#8222;") ; Double low-9 quotation mark
+		set string = $replace(string, $c(8224), "&#8224;") ; Dagger
+		set string = $replace(string, $c(8225), "&#8225;") ; Double dagger
+		set string = $replace(string, $c(8226), "&#8226;") ; Bullet
+		set string = $replace(string, $c(8230), "&#8230;") ; Horizontal ellipsis
+		set string = $replace(string, $c(8240), "&#8240;") ; Per thousand sign
+		set string = $replace(string, $c(8364), "&#8364;") ; Euro sign
+		set string = $replace(string, $c(8482), "&#8482;") ; Trade mark sign
+		
+	}
+	
+	quit string
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="getSlottedStories" arguments='publicationObj:dt.cms.schema.Publication="", sectionObj:dt.cms.schema.Section="", areas:%String=""' returntype="%ListOfObjects">
+	
+	/**
+	 * Get slotted stories.
+	 * 
+	 * @param      object
+	 * @param      object
+	 * @param      string
+	 * @return     objects
+	 */
+	
+	new listObj1
+	
+	set listObj1 = ##class(%ListOfObjects).%New()
+	
+	if ($isobject(publicationObj) && $isobject(sectionObj) && $length(areas)) {
+		
+		new listObj2, count, i, area
+		
+		set listObj2 = ##class(%ListOfObjects).%New()
+		set count = 0
+		set i = 1
+		set area = ""
+		
+		set count = $length(areas, ",")
+		for i=1:1:count {
+			
+			set area = ..trim($piece(areas, ",", i))
+			
+			; You could use the DTI method:
+			
+			//set k("listObj1") = ##class(dt.cms.support.TopSlotStories).getTopStories("pub name", "section name", "page layout name", "grid name", "area name", "items to return (int)")
+			
+			; Unfortunately, it does not work so well for _all_ the sections at the RG, so... We are going to use our own code:
+			
+			set listObj2 = ##class(rg.webRules).rgGetSlottedStoriesAsList(area,,, publicationObj.getName(),, sectionObj.getName()) // Arguments: "Area Name", "limit", "Publication ID", "Publication Name", "Section ID", "Section Name", "Prioritize"
+			
+			do ..mergeListOfObjects(.listObj1, listObj2, 1)
+			
+		}
+		
+	}
+	
+	quit listObj1
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="getAllSections" arguments='publicationName:%String=""' returntype="%ListOfObjects">
+	
+	/**
+	 * Get all sections found in a publication.
+	 * 
+	 * @param      string
+	 * @return     objects
+	 */
+	
+	; Code by John Ferguson
+	; http://snipurl.com/vklf0
+	; Slightly modified by Micky Hulse
+	
+	new listObj
+	
+	set listObj = ##class(%ListOfObjects).%New()
+	
+	if ($length(publicationName)) {
+		
+		new publicationId, i, publicationObj, sectionObj
+		
+		set publicationId = -1
+		set i = 1
+		set (publicationObj, sectionObj)  = ""
+		set count = 0
+		
+		// Get the publication ID:
+		set publicationId = ##class(dt.cms.support.Utilities).getPublicationID(publicationName)
+		
+		// Get the publication object:
+		set publicationObj = ##class(dt.cms.schema.Publication).%OpenId(publicationId)
+		
+		// Get all the sections:
+		if ($isObject(publicationObj)) {
+			
+			// Loop through each section within this publication:
+			set count = publicationObj.sections.Count()
+			for i=1:1:count {
+				
+				set sectionObj = publicationObj.sections.GetAt(i)
+				do:($isobject(sectionObj)) listObj.Insert(sectionObj)
+				
+			}
+			
+		}
+		
+	}
+	
+	quit listObj
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
+
+<script language="cache" method="getSections" arguments='publicationObj:dt.cms.schema.Publication="", sections:%String=""' returntype="%ListOfObjects">
+	
+	/**
+	 * Get specific sections found in a publication.
+	 * 
+	 * @param      object
+	 * @param      string
+	 * @return     objects
+	 */
+	
+	new listObj
+	
+	set listObj = ##class(%ListOfObjects).%New()
+	
+	if ($isobject(publicationObj) && $length(sections)) {
+		
+		new count, sectionId, i, section, sectionObj
+		
+		set count = 0
+		set sectionId = -1
+		set i = 1
+		set sectionObj  = ""
+		
+		set count = $length(sections, ",")
+		for i=1:1:count {
+			
+			// Get section name:
+			set section = ..trim($piece(sections, ",", i))
+			
+			// Get the section ID:
+			set sectionId = ##class(dt.cms.support.Utilities).getSectionID(publicationObj, section)
+			
+			// Get the section object:
+			set sectionObj = ##class(dt.cms.schema.Section).%OpenId(sectionId)
+			
+			// Add the section:
+			do:($isobject(sectionObj)) listObj.Insert(sectionObj)
+			
+		}
+		
+	}
+	
+	quit listObj
+	
+</script>
+
+<csp:comment>++++++++++++++++++++++++++++++++++++++++++++++++++++++++++</csp:comment>
