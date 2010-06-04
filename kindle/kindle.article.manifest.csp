@@ -8,7 +8,7 @@
 </script>
 
 <csp:include page="./includes/config.inc.csp" />
-<!-- #include virtual = "/ROOT/PATH/TO/kindle/includes/methods.inc.csp" -->
+<!-- #include file="./includes/methods.inc.csp" -->
 
 <script language="cache" runat="server">
 	
