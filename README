@@ -23,31 +23,6 @@ If you decide to use this code, then do so on your test server (i.e. do not use 
 Use this code at your own risk.
 
 ==========================
-Notes:
-==========================
-
-After uploading to your test server, be sure to update the virtual include path:
-
-<!-- #include virtual = "/ROOT/PATH/TO/kindle/includes/methods.inc.csp" -->
-
-… For each of these files:
-
-kindle/kindle.article.file.csp
-kindle/kindle.article.manifest.csp
-kindle/kindle.section.manifest.csp
-
-Unfortunately, I was not able to get a relative include path to work. :(
-
-Read more about virtual includes here:
-
-"CSP and HTML Tag Reference: #INCLUDE"
-http://snipurl.com/vkuxb
-
-Note:
-
-"CSP includes files before executing script commands. Therefore, you cannot use a script command to build the name of an included file."
-
-==========================
 Miscellaneous:
 ==========================
 
